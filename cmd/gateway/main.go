@@ -45,7 +45,7 @@ import (
 )
 
 // version 可在编译时通过 -ldflags "-X main.version=..." 覆盖。
-var version = "0.1.0"
+var version = "1.0.0"
 
 func main() {
 	flag.Usage = func() {

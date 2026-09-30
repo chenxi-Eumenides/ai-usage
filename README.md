@@ -75,11 +75,10 @@ aiusage version
 
 程序按以下顺序查找配置，使用**第一个存在的文件**：
 
-1. 可执行文件所在目录的 `config.json`
-2. `~/.config/ai-usage/config.json`
-3. `/etc/ai-usage/config.json`
+1. `~/.config/ai-usage/config.json`（用户级）
+2. `/etc/ai-usage/config.json`（系统级）
 
-三处都不存在时，程序尝试在可执行文件所在目录创建默认 `config.json`；无法创建时仍使用内置默认值。
+两处都不存在时，程序尝试在用户级目录 `~/.config/ai-usage/` 创建默认 `config.json`；无法创建时仍使用内置默认值。
 
 完整示例（默认值全部开启）：
 

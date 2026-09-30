@@ -56,27 +56,18 @@ func (c Config) PageFeatures() Features {
 	}
 }
 
-// Load 按可执行文件同目录、用户配置目录、系统配置目录的优先级加载配置。
-// 返回生效配置、选中的文件路径和错误；首次缺少配置时尝试创建默认文件。
+// Load 按用户配置目录、系统配置目录的优先级加载配置。
+// 返回生效配置、选中的文件路径和错误；首次缺少配置时尝试在用户级目录创建默认文件。
 func Load() (Config, string, error) {
-	executable, err := os.Executable()
-	if err != nil {
-		executable, err = os.Getwd()
-		if err != nil {
-			return Config{}, "", fmt.Errorf("获取当前工作目录失败: %w", err)
-		}
-	}
-	executableDir := filepath.Dir(executable)
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Config{}, "", fmt.Errorf("获取用户主目录失败: %w", err)
 	}
-	return loadFromDirs(executableDir, filepath.Join(home, ".config", ProjectName), filepath.Join("/etc", ProjectName))
+	return loadFromDirs(filepath.Join(home, ".config", ProjectName), filepath.Join("/etc", ProjectName))
 }
 
-func loadFromDirs(executableDir, userDir, systemDir string) (Config, string, error) {
+func loadFromDirs(userDir, systemDir string) (Config, string, error) {
 	paths := []string{
-		filepath.Join(executableDir, configFileName),
 		filepath.Join(userDir, configFileName),
 		filepath.Join(systemDir, configFileName),
 	}
@@ -94,7 +85,9 @@ func loadFromDirs(executableDir, userDir, systemDir string) (Config, string, err
 	contents, err := json.MarshalIndent(cfg, "", "  ")
 	if err == nil {
 		contents = append(contents, '\n')
-		err = os.WriteFile(path, contents, 0600)
+		if err = os.MkdirAll(userDir, 0700); err == nil {
+			err = os.WriteFile(path, contents, 0600)
+		}
 	}
 	if err != nil {
 		log.Printf("警告：无法创建默认配置文件 %s：%v；继续使用默认配置", path, err)

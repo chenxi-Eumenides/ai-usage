@@ -9,10 +9,9 @@ import (
 
 func TestLoadPriority(t *testing.T) {
 	root := t.TempDir()
-	executableDir := filepath.Join(root, "bin")
 	userDir := filepath.Join(root, "user")
 	systemDir := filepath.Join(root, "etc")
-	for _, dir := range []string{executableDir, userDir, systemDir} {
+	for _, dir := range []string{userDir, systemDir} {
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -20,12 +19,12 @@ func TestLoadPriority(t *testing.T) {
 	for i, tc := range []struct {
 		dir  string
 		want string
-	}{{executableDir, "local"}, {userDir, "user"}, {systemDir, "system"}} {
+	}{{userDir, "user"}, {systemDir, "system"}} {
 		path := filepath.Join(tc.dir, configFileName)
 		if err := os.WriteFile(path, []byte(`{"dashboard":{"cardFilter":{"cards":["`+tc.want+`"]}}}`), 0600); err != nil {
 			t.Fatal(err)
 		}
-		cfg, selected, err := loadFromDirs(executableDir, userDir, systemDir)
+		cfg, selected, err := loadFromDirs(userDir, systemDir)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -40,15 +39,12 @@ func TestLoadPriority(t *testing.T) {
 
 func TestLoadCreatesDefaultFileAndFillsDefaults(t *testing.T) {
 	root := t.TempDir()
-	bin, home, etc := filepath.Join(root, "bin"), filepath.Join(root, "home"), filepath.Join(root, "etc")
-	if err := os.MkdirAll(bin, 0700); err != nil {
-		t.Fatal(err)
-	}
-	cfg, path, err := loadFromDirs(bin, home, etc)
+	home, etc := filepath.Join(root, "home"), filepath.Join(root, "etc")
+	cfg, path, err := loadFromDirs(home, etc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != filepath.Join(bin, configFileName) {
+	if path != filepath.Join(home, configFileName) {
 		t.Fatalf("path = %q", path)
 	}
 	if !cfg.Dashboard.Enabled || !cfg.Keys.Enabled || cfg.Dashboard.CardFilter.Mode != "blacklist" || cfg.Dashboard.CardFilter.Cards == nil {

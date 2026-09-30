@@ -17,7 +17,7 @@ Go（版本见 `go.mod`）、标准库 `http.ServeMux`、纯 Go SQLite（无 CGO
 | `internal/store` | SQLite 本地存储。 |
 | `internal/cache` | 用量 TTL 缓存与 singleflight。 |
 | `internal/config` | 内置 flag 与环境变量运行配置。 |
-| `internal/appconf` | 用户 `config.json` 三级加载；`ProjectName` 常量位于此处。 |
+| `internal/appconf` | 用户 `config.json` 两级加载（用户级 → 系统级，默认生成在用户级）；`ProjectName` 常量位于此处。 |
 
 ## 关键约定
 

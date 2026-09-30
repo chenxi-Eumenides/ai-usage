@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 用量助手</title>
+<style>
+  /* 主题变量：默认浅色，深色在 media query 与 [data-theme="dark"] 中覆盖。
+     三态：auto（跟随系统，prefers-color-scheme）/ light（强制浅色）/ dark（强制深色）。
+     data-theme="light" 屏蔽系统偏好；data-theme="dark" 无条件深色；缺失或 auto 时跟随系统。 */
+  :root {
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --border: #d2d2d7;
+    --accent: #0071e3;
+    --warn: #ff9500;
+    --error: #ff3b30;
+    --ok: #34c759;
+    --warn-bg: #fff8e6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1c1c1e;
+      --card: #2c2c2e;
+      --text: #f5f5f7;
+      --muted: #98989d;
+      --border: #3a3a3c;
+      --accent: #0a84ff;
+      --warn: #ff9f0a;
+      --error: #ff453a;
+      --ok: #30d158;
+      --warn-bg: #3a2f1a;
+    }
+  }
+  html[data-theme="dark"] {
+    --bg: #1c1c1e;
+    --card: #2c2c2e;
+    --text: #f5f5f7;
+    --muted: #98989d;
+    --border: #3a3a3c;
+    --accent: #0a84ff;
+    --warn: #ff9f0a;
+    --error: #ff453a;
+    --ok: #30d158;
+    --warn-bg: #3a2f1a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header .meta { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+  button {
+    background: var(--accent);
+    color: white;
+    border: 0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { opacity: 0.85; }
+  button.secondary { background: var(--muted); }
+  button.danger { background: var(--error); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  section { background: var(--card); border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); }
+  h2 { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; }
+  h3 { margin: 16px 0 10px 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    background: var(--card);
+    display: flex;
+    flex-direction: column;
+  }
+  .card.has-error { border-color: var(--warn); background: var(--warn-bg); }
+  .card-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .card-title small { color: var(--muted); font-weight: normal; font-size: 12px; }
+  .kv { font-size: 13px; margin: 4px 0; display: flex; justify-content: space-between; gap: 8px; }
+  .kv .label { color: var(--muted); }
+  .kv .value { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  .progress { background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden; margin-top: 4px; }
+  .progress-bar { height: 100%; background: var(--accent); transition: width 0.3s; }
+  .progress-bar.warn { background: var(--warn); }
+  .progress-bar.danger { background: var(--error); }
+  .status-error { color: var(--error); font-size: 12px; margin-top: 8px; }
+  .user-error { white-space: normal; }
+  .status-warn { color: var(--warn); font-size: 12px; margin-top: 8px; }
+  .card-actions { margin-top: auto; padding-top: 12px; display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; color: var(--muted); font-size: 12px; }
+  tr:last-child td { border-bottom: 0; }
+  .empty { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input, select {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .btn-group { display: flex; gap: 6px; flex-wrap: nowrap; }
+  .btn-group button { padding: 4px 10px; font-size: 12px; white-space: nowrap; }
+  .drag-handle { cursor: grab; color: var(--muted); font-size: 15px; letter-spacing: -1px; user-select: none; padding: 0 2px; }
+  .drag-handle:active { cursor: grabbing; }
+  #keys-table th.ops, #keys-table td.ops { padding-left: 4px; padding-right: 4px; }
+  #keys-table th.sort, #keys-table td.sort { padding-left: 2px; padding-right: 2px; }
+  tr.dragging { opacity: 0.4; }
+  tr.drag-over td { border-top: 2px solid var(--accent); }
+  .toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--text);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 1000;
+    max-width: 400px;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--error); }
+  .toast.warn { background: var(--warn); }
+  .badge { display: inline-block; padding: 2px 6px; background: var(--bg); border-radius: 4px; font-size: 11px; color: var(--muted); }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 24px;
+    min-width: 360px;
+    max-width: 480px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  }
+  .modal h3 { margin: 0 0 16px 0; font-size: 16px; text-transform: none; color: var(--text); letter-spacing: 0; }
+  .modal label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  .modal input, .modal select { width: 100%; }
+  .modal-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
+  .cookies-modal { width: min(560px, calc(100vw - 32px)); min-width: 0; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .cookies-help { margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+  .cookies-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cookies-shortcuts button { min-height: 36px; }
+  .cookies-modal label { margin-top: 16px; color: var(--text); font-weight: 600; }
+  .cookies-modal textarea {
+    display: block;
+    width: 100%;
+    min-height: 140px;
+    resize: vertical;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.5 ui-monospace, "SF Mono", Consolas, monospace;
+    overflow-wrap: anywhere;
+  }
+  .cookies-modal textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .cookies-error { margin: 10px 0 0; }
+  .cookies-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .cookies-status .status-error { margin: 0; }
+  .cookies-status button { min-height: 32px; }
+
+  /* Key 表格横向滚动容器：表格超宽时在容器内滚动，避免撑宽页面触发左右滑动 */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* 移动端布局：宽度 < 820px */
+  @media (max-width: 820px) {
+    header { padding: 12px 16px; }
+    header h1 { font-size: 17px; }
+    header .meta { width: 100%; justify-content: space-between; }
+    main { padding: 12px; }
+    section { padding: 14px; }
+    h2 { font-size: 15px; }
+    .grid { grid-template-columns: 1fr; }
+    .modal { min-width: 0; width: calc(100vw - 32px); }
+
+    /* Key 管理：表格转卡片，宽度不够时直接展示完整内容（无需横向滚动） */
+    #keys-table, #keys-table tbody { display: block; width: 100%; }
+    #keys-table thead { display: none; }
+    #keys-table tr {
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      background: var(--card);
+    }
+    #keys-table td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 0;
+      border: 0;
+    }
+    #keys-table td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    #keys-table td code { word-break: break-all; text-align: right; }
+    #keys-table td select { max-width: 100%; }
+    #keys-table td.ops { display: block; }
+    #keys-table td.ops::before { display: block; margin-bottom: 6px; }
+    #keys-table td.ops .btn-group { flex-wrap: wrap; justify-content: flex-start; }
+    #keys-table td.sort { display: flex; justify-content: flex-end; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI 用量助手</h1>
+  <div class="meta">
+    <span id="updated-at">加载中...</span>
+    <button id="btn-theme" class="secondary" type="button" title="切换主题：跟随 / 浅色 / 深色">主题：自动</button>
+  </div>
+</header>
+<div id="all-disabled" hidden style="text-align:center">仪表盘与 Key 管理均已在配置文件中禁用。</div>
+<main id="app-main">
+  <section id="dashboard-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin:0">用量仪表盘</h2>
+      <button id="btn-refresh" type="button">刷新全部用量</button>
+    </div>
+    <div id="dashboard"></div>
+    <div id="dashboard-empty" class="empty" hidden>暂无 key，请先在下方添加。</div>
+  </section>
+
+  <section id="keys-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin:0">Key 管理</h2>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="btn-add" class="secondary">+ 添加 Key</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="keys-table">
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Key</th>
+            <th>账户</th>
+            <th>备注</th>
+            <th>类型</th>
+            <th class="ops">操作</th>
+            <th class="sort">排序</th>
+          </tr>
+        </thead>
+        <tbody id="keys-tbody"></tbody>
+    </table>
+    </div>
+    <div id="keys-empty" class="empty">暂无 key。</div>
+  </section>
+</main>
+
+<div id="edit-modal" class="modal-backdrop">
+  <div class="modal">
+    <h3>编辑 Key</h3>
+    <form id="edit-form">
+      <input type="hidden" id="edit-id">
+      <label>提供商</label>
+      <select id="edit-provider"></select>
+      <label>API Key（留空保持原 key）</label>
+      <input id="edit-key" type="text" placeholder="留空保持原 key" autocomplete="off">
+      <label>类型</label>
+      <select id="edit-keytype">
+        <option value="both">不区分</option>
+        <option value="plan">套餐</option>
+        <option value="balance">余额</option>
+        <option value="disabled">禁用</option>
+      </select>
+      <label>账户</label>
+      <input id="edit-account" type="text" placeholder="账户（同账户聚合显示）">
+      <label>备注</label>
+      <input id="edit-note" type="text" placeholder="备注">
+      <div class="modal-actions">
+        <button type="button" id="edit-cancel" class="secondary">取消</button>
+        <button type="submit">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="info-modal" class="modal-backdrop">
+  <div class="modal">
+    <h3 id="info-title">用量说明</h3>
+    <div id="info-body"></div>
+    <div class="modal-actions">
+      <button type="button" id="info-close" class="secondary">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="add-modal" class="modal-backdrop">
+  <div class="modal">
+    <h3>添加 Key</h3>
+    <form id="add-form" autocomplete="off">
+      <label>提供商</label>
+      <select id="add-provider" required></select>
+      <label>API Key（必填）</label>
+      <input id="add-key" type="text" placeholder="API Key" required autocomplete="off">
+      <label>类型</label>
+      <select id="add-keytype">
+        <option value="both">不区分</option>
+        <option value="plan">套餐</option>
+        <option value="balance">余额</option>
+        <option value="disabled">禁用</option>
+      </select>
+      <label>账户</label>
+      <input id="add-account" type="text" placeholder="账户（同账户聚合显示，可选）">
+      <label>备注</label>
+      <input id="add-note" type="text" placeholder="备注（可选）">
+      <div class="modal-actions">
+        <button type="button" id="add-cancel" class="secondary">取消</button>
+        <button type="submit">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="cookies-modal" class="modal-backdrop">
+  <div class="modal cookies-modal" role="dialog" aria-modal="true" aria-labelledby="cookies-title">
+    <h3 id="cookies-title">更新凭证</h3>
+    <p id="cookies-help" class="cookies-help"></p>
+    <div id="cookies-shortcuts" class="cookies-shortcuts"></div>
+    <form id="cookies-form">
+      <label id="cookies-label" for="cookies-value">凭证</label>
+      <textarea id="cookies-value" autocomplete="off" spellcheck="false" placeholder=""></textarea>
+      <p id="cookies-error" class="status-error user-error cookies-error" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button type="button" id="cookies-cancel" class="secondary">取消</button>
+        <button type="submit" id="cookies-save">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script id="app-data" type="application/json">{{.InitialDataJSON}}</script>
+<script>
+(function() {
+  'use strict';
+
+  // 主题系统：三态（auto/light/dark），localStorage 持久化。
+  // 应用策略：始终设 data-theme（auto/light/dark），CSS 通过 [data-theme="light"] 屏蔽
+  // 系统偏好，[data-theme="dark"] 无条件深色，缺失或 auto 时跟随系统。
+  var THEME_KEY = 'theme';
+  var THEME_CYCLE = ['auto', 'light', 'dark'];
+  var THEME_LABEL = { auto: '自动', light: '浅色', dark: '深色' };
+  function getTheme() {
+    try {
+      var v = localStorage.getItem(THEME_KEY);
+      if (v === 'light' || v === 'dark' || v === 'auto') return v;
+    } catch (e) {}
+    return 'auto';
+  }
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    var btn = document.getElementById('btn-theme');
+    if (btn) btn.textContent = '主题：' + THEME_LABEL[theme];
+  }
+  function cycleTheme() {
+    var cur = getTheme();
+    var next = THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length];
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+    applyTheme(next);
+  }
+  applyTheme(getTheme());
+
+  var dataEl = document.getElementById('app-data');
+  var data;
+  try { data = JSON.parse(dataEl.textContent || '{}'); }
+  catch (e) { data = { keys: [], usage: [], providers: [], updated_at: null, features: { dashboardEnabled: true, keysEnabled: true, cardFilter: { mode: 'blacklist', cards: [] } } }; }
+
+  data.features = data.features || { dashboardEnabled: true, keysEnabled: true, cardFilter: { mode: 'blacklist', cards: [] } };
+  var dashboardEnabled = data.features.dashboardEnabled !== false;
+  var keysEnabled = data.features.keysEnabled !== false;
+  document.getElementById('dashboard-section').hidden = !dashboardEnabled;
+  document.getElementById('keys-section').hidden = !keysEnabled;
+  document.getElementById('app-main').hidden = !dashboardEnabled && !keysEnabled;
+  document.getElementById('all-disabled').hidden = dashboardEnabled || keysEnabled;
+  if (!keysEnabled) document.getElementById('dashboard-empty').textContent = '暂无 key。';
+
+  var $ = function(id) { return document.getElementById(id); };
+
+  // 防御性监听器绑定：元素缺失时静默跳过，避免中断后续绑定（renderAll 依赖绑定段执行完）
+  function on(id, evt, fn) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener(evt, fn);
+  }
+
+  function escapeText(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  function normalizeErrorMessage(message) {
+    return String(message == null ? '' : message)
+      .replace(/<br\s*\/?>/gi, ' ')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/(^|[：:]\s*)错误[：:]\s*/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function errorMessageHTML(message) {
+    return '<div class="status-error user-error">' + escapeText(normalizeErrorMessage(message)) + '</div>';
+  }
+
+  function toast(msg, kind) {
+    var el = $('toast');
+    el.textContent = normalizeErrorMessage(msg);
+    el.className = 'toast show' + (kind ? ' ' + kind : '');
+    if (kind === 'error') el.classList.add('user-error');
+    setTimeout(function() { el.className = 'toast'; }, 3000);
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '从未刷新';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('zh-CN', { hour12: false });
+  }
+
+  function fmtMoney(m) {
+    if (!m || !m.amount) return '-';
+    return m.amount + ' ' + (m.currency || '');
+  }
+
+  // fmtQuota 渲染配额右侧值。period 只由左侧 label 显示（见 renderCard），
+  // 右侧只显示一个百分比（剩余百分比，语义与 minimax 的
+  // current_interval_remaining_percent 一致）；无 percent 时降级显示 used/limit
+  // 或 remaining/limit。注意 q.used 可能为空串（kimi API 不返回 used 字段），
+  // 空串视为无数据，避免渲染出「/100」。
+  function fmtQuota(q) {
+    if (!q.period) return '-';
+    if (q.percent) return fmtPctNum(q.percent) + '%';
+    if (q.used != null && q.used !== '' && q.limit) return q.used + '/' + q.limit;
+    if (q.remaining != null && q.remaining !== '' && q.limit) return q.remaining + '/' + q.limit;
+    return '-';
+  }
+
+  // fmtPeriod 把配额窗口标识译为中文；未收录的（含已是中文的）原样返回。
+  function fmtPeriod(p) {
+    if (!p) return p;
+    var m = { '5h': '5小时', 'weekly': '每周', 'monthly': '每月', 'granted': '已发放' };
+    return m[p] || p;
+  }
+
+  // fmtPctNum 把百分比收敛为最多两位小数，防止浮点长串（如 60.099999999999994）。
+  function fmtPctNum(s) {
+    var n = parseFloat(s);
+    if (!isFinite(n)) return s;
+    return String(Math.round(n * 100) / 100);
+  }
+
+  function quotaPercentClass(percentStr) {
+    if (!percentStr) return '';
+    var p = parseFloat(percentStr);
+    if (!isFinite(p)) return '';
+    if (p < 20) return 'danger';
+    if (p < 50) return 'warn';
+    return '';
+  }
+
+  // groupByAccount 按 (provider, account, key_type) 聚合 usage 条目：
+  //   - account 为空/缺失 → 保持独立条目（不聚合）
+  //   - 同 provider 同 account 同 key_type 的多个 key → 合并为一个 group 条目
+  //     （members 数组），key_id 取第一个成员，分类阶段按成员集合推导
+  //   - 同 account 不同类型（如一个 plan 一个 balance）→ 分属不同 group，
+  //     各自独立展示（与 buildUsageEntries 的刷新单元分组一致）
+  // 聚合发生在 classifyAndSort 之前，无 account 的 key 行为不变。
+  function groupByAccount(usage) {
+    var map = {};
+    var out = [];
+    for (var i = 0; i < usage.length; i++) {
+      var u = usage[i];
+      var g = (u.account || '').trim();
+      if (!g) { out.push(u); continue; }
+      var kt = u.key_type || 'both';
+      var key = u.provider + ':' + g + ':' + kt;
+      if (!map[key]) {
+        var entry = {
+          isGroup: true,
+          provider: u.provider,
+          provider_display_name: u.provider_display_name,
+          account: g,
+          key_type: kt,
+          members: [],
+          key_id: u.key_id,
+          console_url: u.console_url
+        };
+        map[key] = entry;
+        out.push(entry);
+      }
+      map[key].members.push(u);
+    }
+    return out;
+  }
+
+  // classifyAndSort 三组分类（T32）：
+  //   - error 异常组：顶层 error || usage.error（真实错误）|| usage 为 nil || usage 三字段全空
+  //   - plan 套餐组：非异常且 (usage_type==='plan' 或 both 且有 plan/quotas 数据)
+  //   - balance 余额组：非异常且 (usage_type==='balance' 或 both 且有 balance 数据)
+  // T33 修订：未知 provider（skip）完全跳过，不进任何组；分组以 usage_type
+  // 为主（Quotas 不单独作为套餐判据——zai 余额结果自带「总消费」Quota，若 Quotas 也算套餐
+  // 会把 balance key 误分进套餐组）。
+  // T44 推翻 T33 的「类型不匹配隐藏」：fetch 未实现通道的报错按 kt 实际情况生成
+  // （「此提供商不支持余额/套餐查询」），卡片一律进异常组显示，带用量页直达/用量说明
+  // 按钮——隐藏让 bailian/mimo/modelscope 与误配 key 失去入口与原因提示。
+  // 关键差异：usage_type==='both' 时，按实际数据双组都加（用户明确「都有就都显示」）。
+  // 优先级：跳过 > 套餐/余额。缺失/未知 usage_type + 无明确数据 → 兜底归余额。
+  function classifyAndSort(usage) {
+    var planBuckets = [[], []];    // [0]=有数据, [1]=错误/无数据
+    var balanceBuckets = [[], []];
+    var errorList = [];
+    for (var i = 0; i < usage.length; i++) {
+      var u = usage[i];
+      // 账户聚合条目：按成员集合推导分组（error > plan > balance 优先级）
+      if (u.isGroup) {
+        classifyGroup(u, planBuckets, balanceBuckets, errorList);
+        continue;
+      }
+      // 未知 provider（仅存储）：完全跳过，不显示在任何组
+      if (u.skip) continue;
+      // 刷新中条目：按 key_type 归组并渲染占位（不当作错误）
+      if (u.loading) {
+        var lt = u.key_type || 'both';
+        if (lt === 'plan') planBuckets[0].push(u);
+        else balanceBuckets[0].push(u);
+        continue;
+      }
+      // T44：类型不匹配不再隐藏。fetch 未实现的通道由后端按 kt 报「不支持 X 查询」，
+      // 落下方 isError 判定进异常组显示（卡片带 usage.error 文案 + 用量页/说明按钮）。
+      var t = u.usage_type || '';
+      var ug = u.usage;
+      var hasBalance = !!(ug && ug.balance);
+      var hasQuotas = !!(ug && ug.quotas && ug.quotas.length);
+      var hasPlan = !!(ug && ug.plan);
+      var hasData = !!(ug && (hasBalance || hasQuotas || hasPlan));
+      var hasUsageError = !!(ug && ug.error);
+      var isError = !!u.error || hasUsageError || !ug || !hasData;
+
+      if (isError) {
+        errorList.push(u);
+        continue;
+      }
+
+      // 以 usage_type 为主判定分组（T33）：Quotas 仅当 usage_type 为 plan/both 才算套餐数据
+      var inPlan = (t === 'plan') || (t === 'both' && (hasPlan || hasQuotas));
+      var inBalance = (t === 'balance') || (t === 'both' && hasBalance);
+      // 兜底：usage_type 缺失时按数据判断
+      if (!t) {
+        inPlan = hasPlan || hasQuotas;
+        inBalance = hasBalance;
+      }
+      // both 类型两个区都加（按实际数据）；其他类型按 type 与数据双重判断
+      if (inPlan) planBuckets[0].push(u);
+      if (inBalance) balanceBuckets[0].push(u);
+      // 兜底：非异常但 type 与数据均无法归类（理论不应发生），归余额
+      if (!inPlan && !inBalance) balanceBuckets[0].push(u);
+    }
+    return {
+      plan: planBuckets[0].concat(planBuckets[1]),
+      balance: balanceBuckets[0].concat(balanceBuckets[1]),
+      error: errorList
+    };
+  }
+
+  // classifyGroup 推导账户聚合条目的分组：
+  //   - 全部成员 skip → 整组隐藏；类型不匹配成员按 usage.error 归异常组（T44）
+  //   - 任一成员真实错误 → error 组（卡片内错误成员单独标注）
+  //   - 组内成员 key_type 一致（groupByAccount 已按 (provider, account, key_type)
+  //     聚合），按成员类型归组；both 类型成员按实际数据归组（套餐/余额都有时
+  //     plan 优先，避免一张卡片在两个区重复渲染）
+  function classifyGroup(grp, planBuckets, balanceBuckets, errorList) {
+    var members = grp.members || [];
+    var hasError = false, hasPlan = false, hasBalance = false, hasAny = false;
+    for (var i = 0; i < members.length; i++) {
+      var u = members[i];
+      if (u.skip) continue;
+      // 刷新中成员：按 key_type 标记组归属，渲染「刷新中…」占位
+      if (u.loading) {
+        hasAny = true;
+        if ((u.key_type || 'both') === 'plan') hasPlan = true;
+        else hasBalance = true;
+        continue;
+      }
+      // T44：类型不匹配成员不跳过，下方按 usage.error 归异常组。
+      var t = u.usage_type || '';
+      var ug = u.usage;
+      var hasBalance = !!(ug && ug.balance);
+      var hasQuotas = !!(ug && ug.quotas && ug.quotas.length);
+      var hasPlan = !!(ug && ug.plan);
+      var hasData = !!(ug && (hasBalance || hasQuotas || hasPlan));
+      if (!!u.error || !!(ug && ug.error) || !ug || !hasData) { hasError = true; continue; }
+      hasAny = true;
+      if ((t === 'plan') || (t === 'both' && (hasPlan || hasQuotas))) hasPlan = true;
+      if ((t === 'balance') || (t === 'both' && hasBalance)) hasBalance = true;
+      if (!t) {
+        if (hasPlan || hasQuotas) hasPlan = true;
+        if (hasBalance) hasBalance = true;
+      }
+    }
+    if (!hasError && !hasAny) return;
+    if (hasError) { errorList.push(grp); return; }
+    if (hasPlan) { planBuckets[0].push(grp); return; }
+    balanceBuckets[0].push(grp);
+  }
+
+  // usageBodyHTML 渲染 usage 的余额/套餐/配额部分，renderCard 与 renderGroupCard 共享：
+  // balance → 「余额 X」；plan.level → 「套餐 X」；quotas → 各窗口 X% + 进度条。
+  function usageBodyHTML(usage) {
+    var body = '';
+    if (!usage) return body;
+    if (usage.balance && usage.balance.amount) {
+      body += '<div class="kv"><span class="label">余额</span><span class="value">' + escapeText(fmtMoney(usage.balance)) + '</span></div>';
+    }
+    if (usage.quotas && usage.quotas.length) {
+      for (var j = 0; j < usage.quotas.length; j++) {
+        var q = usage.quotas[j];
+        body += '<div class="kv"><span class="label">' + escapeText(fmtPeriod(q.period) || '配额') + '</span><span class="value">' + escapeText(fmtQuota(q)) + '</span></div>';
+        if (q.percent) {
+          var cls = quotaPercentClass(q.percent);
+          body += '<div class="progress"><div class="progress-bar ' + cls + '" style="width:' + fmtPctNum(q.percent) + '%"></div></div>';
+        }
+      }
+    }
+    return body;
+  }
+
+  // renderGroupCard 渲染账户聚合卡片（T34 结构，T36 账户名取自 account，T37 直接显示共享数据）：
+  // 卡片标题 = 账户名 + provider + 「N 个 key」；主体直接渲染第一个成功成员 m.usage 的
+  // 共享余额/套餐数据（同账户同类型 key 共用同一余额/套餐，逐 key 重复列出没有意义）。
+  // 所有成员均 error/无数据 → 显示首个错误信息并加 has-error 样式。
+  // 动作区：「前往用量页」直达按钮；无用量页 → 「用量说明」弹框按钮（T41 回退，
+  // 文案取后端下发的 usage_note，缺失时用前端通用文案）。
+  // 「刷新」按钮按卡片维度刷新（同账户的所有单元一起刷）。
+  function renderGroupCard(u) {
+    var cardClass = 'card';
+    var hasError = false;
+    var consoleURL = '';
+    var consoleUsageURL = '';
+    var members = u.members || [];
+    var cookieEntry = null;
+
+    // 取第一个成功成员（usage 无错误）的共享数据；无任何成功成员时记录首个错误供兜底展示。
+    var shared = null;
+    var firstErr = '';
+    var anyLoading = false;
+    for (var i = 0; i < members.length; i++) {
+      var m = members[i];
+      if (!cookieEntry && (m.errorCode === 'credential_missing' || m.errorCode === 'credential_expired')) cookieEntry = m;
+      if (m.console_url && !consoleURL) consoleURL = m.console_url;
+      if (m.console_usage_url && !consoleUsageURL) consoleUsageURL = m.console_usage_url;
+      if (m.loading) { anyLoading = true; continue; }
+      var errMsg = m.error || (m.usage && m.usage.error) || '';
+      if (!errMsg && m.usage) {
+        if (!shared) shared = m.usage;
+      } else if (!firstErr) {
+        firstErr = errMsg || '无数据';
+      }
+    }
+
+    var body;
+    if (shared) {
+      body = usageBodyHTML(shared);
+    } else if (anyLoading) {
+      body = '<div class="status-warn">刷新中…</div>';
+    } else {
+      hasError = true;
+      body = errorMessageHTML(firstErr);
+    }
+    if (cookieEntry && keysEnabled) {
+      hasError = true;
+      body = credentialStatusHTML(cookieEntry);
+    }
+    if (hasError) cardClass += ' has-error';
+
+    var actions = '';
+    if (consoleUsageURL) {
+      actions += '<button type="button" class="secondary" data-action="usage-url" data-href="' + escapeText(consoleUsageURL) + '">前往用量页</button>';
+    } else {
+      actions += '<button type="button" class="secondary" data-action="usage-info" data-key-id="' + u.key_id + '">用量说明</button>';
+    }
+    if (cookieEntry) {
+      actions += '<button type="button" class="secondary" data-action="update-credential" data-key-id="' + escapeText(cookieEntry.key_id) + '">更新 ' + escapeText(credentialLabel(cookieEntry)) + '</button>';
+    }
+    actions += '<button type="button" class="secondary" data-action="card-refresh" data-key-id="' + u.key_id + '"' + (anyLoading ? ' disabled' : '') + '>刷新</button>';
+    var actionsHtml = actions ? '<div class="card-actions">' + actions + '</div>' : '';
+
+    return '<div class="' + cardClass + '" data-key-id="' + u.key_id + '">'
+      + '<div class="card-title">' + escapeText(u.account) + '<small>' + escapeText(u.provider) + ' · ' + members.length + ' 个 key</small></div>'
+      + body
+      + actionsHtml
+      + '</div>';
+  }
+
+  function renderCard(u) {
+    if (u.isGroup) return renderGroupCard(u);
+    var name = u.account || u.provider_display_name || u.provider;
+    var cardClass = 'card';
+    var body = '';
+    var credentialEntry = null;
+    // 异常信息：顶层 error（真实错误）优先，嵌套 usage.error（类型不匹配/合并失败）次之
+    var errorMsg = u.error || (u.usage && u.usage.error) || '';
+
+    if (u.loading) {
+      body = '<div class="status-warn">刷新中…</div>';
+    } else if (u.errorCode === 'credential_missing' || u.errorCode === 'credential_expired') {
+      cardClass += ' has-error';
+      body = credentialStatusHTML(u);
+      credentialEntry = u;
+    } else if (errorMsg) {
+      cardClass += ' has-error';
+      if (errorMsg === '官方未开放') {
+        body = '<div class="status-warn">官方未开放 API</div>';
+      } else {
+        body = errorMessageHTML(errorMsg);
+      }
+    } else if (u.usage) {
+      body = usageBodyHTML(u.usage);
+    }
+
+    var actions = '';
+    if (u.console_usage_url) {
+      actions += '<button type="button" class="secondary" data-action="usage-url" data-href="' + escapeText(u.console_usage_url) + '">前往用量页</button>';
+    } else {
+      actions += '<button type="button" class="secondary" data-action="usage-info" data-key-id="' + u.key_id + '">用量说明</button>';
+    }
+    if (credentialEntry && keysEnabled) {
+      actions += '<button type="button" class="secondary" data-action="update-credential" data-key-id="' + escapeText(credentialEntry.key_id) + '">更新 ' + escapeText(credentialLabel(credentialEntry)) + '</button>';
+    }
+    actions += '<button type="button" class="secondary" data-action="card-refresh" data-key-id="' + u.key_id + '"' + (u.loading ? ' disabled' : '') + '>刷新</button>';
+    var actionsHtml = actions ? '<div class="card-actions">' + actions + '</div>' : '';
+
+    return '<div class="' + cardClass + '" data-key-id="' + u.key_id + '">'
+      + '<div class="card-title">' + escapeText(name) + '<small>' + escapeText(u.provider) + '</small></div>'
+      + body
+      + actionsHtml
+      + '</div>';
+  }
+
+  function credentialLabel(entry) {
+    return (entry.credential && entry.credential.label) || '凭证';
+  }
+
+  function credentialStatusHTML(entry) {
+    var label = credentialLabel(entry);
+    var status = entry.errorCode === 'credential_missing' ? '未配置 ' + label : label + ' 已失效';
+    return errorMessageHTML(entry.error || status);
+  }
+
+  function renderDashboard(usage) {
+    var box = $('dashboard');
+    var empty = $('dashboard-empty');
+    var filter = (data.features && data.features.cardFilter) || { mode: 'blacklist', cards: [] };
+    var cards = filter.cards || [];
+    if (cards.length) {
+      usage = (usage || []).filter(function(card) {
+        var matched = cards.indexOf(card.provider) >= 0 || cards.indexOf(card.provider + '/' + (card.account || '')) >= 0;
+        return filter.mode === 'whitelist' ? matched : !matched;
+      });
+    }
+    if (!usage || usage.length === 0) {
+      box.innerHTML = '';
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    var grouped = classifyAndSort(groupByAccount(usage));
+    var html = '';
+    if (grouped.plan.length > 0) {
+      html += '<h3>套餐用量</h3><div class="grid">';
+      for (var i = 0; i < grouped.plan.length; i++) {
+        html += renderCard(grouped.plan[i]);
+      }
+      html += '</div>';
+    }
+    if (grouped.balance.length > 0) {
+      html += '<h3>余额用量</h3><div class="grid">';
+      for (var j = 0; j < grouped.balance.length; j++) {
+        html += renderCard(grouped.balance[j]);
+      }
+      html += '</div>';
+    }
+    if (grouped.error.length > 0) {
+      html += '<h3>异常</h3><div class="grid">';
+      for (var k = 0; k < grouped.error.length; k++) {
+        html += renderCard(grouped.error[k]);
+      }
+      html += '</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  // keyTypeLabelChinese 把后端 key_type 映射为中文显示（表格列、编辑 modal）。
+  // 缺失/未知归「不区分」兜底（与 store.KeyTypeBoth 默认一致）。
+  function keyTypeLabelChinese(kt) {
+    if (kt === 'plan') return '套餐';
+    if (kt === 'balance') return '余额';
+    if (kt === 'disabled') return '禁用';
+    return '不区分';
+  }
+
+  function renderKeys(keys) {
+    var tbody = $('keys-tbody');
+    var empty = $('keys-empty');
+    var table = $('keys-table');
+    if (!keys || keys.length === 0) {
+      tbody.innerHTML = '';
+      empty.hidden = false;
+      table.hidden = true;
+      return;
+    }
+    empty.hidden = true;
+    table.hidden = false;
+    var html = '';
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var consoleBtn = k.console_url
+        ? '<button class="secondary" data-action="console" data-key-id="' + k.id + '">控制台</button>'
+        : '';
+      var currentKt = k.key_type || 'both';
+      var typeCell = '<select data-action="keytype" data-key-id="' + k.id + '" title="修改 key 类型（保存即调用 PATCH）">'
+        + '<option value="both"' + (currentKt === 'both' ? ' selected' : '') + '>不区分</option>'
+        + '<option value="plan"' + (currentKt === 'plan' ? ' selected' : '') + '>套餐</option>'
+        + '<option value="balance"' + (currentKt === 'balance' ? ' selected' : '') + '>余额</option>'
+        + '<option value="disabled"' + (currentKt === 'disabled' ? ' selected' : '') + '>禁用</option>'
+        + '</select>';
+      html += '<tr draggable="true" data-key-id="' + k.id + '">'
+        + '<td data-label="Provider">' + escapeText(k.provider_display_name || k.provider) + '</td>'
+        + '<td data-label="Key"><code>' + escapeText(k.key_masked) + '</code></td>'
+        + '<td data-label="账户">' + escapeText(k.account || '-') + '</td>'
+        + '<td data-label="备注">' + escapeText(k.note || '') + '</td>'
+        + '<td data-label="类型">' + typeCell + '</td>'
+        + '<td class="ops" data-label="操作"><div class="btn-group">'
+        + '<button data-action="edit" data-key-id="' + k.id + '">编辑</button>'
+        + '<button data-action="copy" data-key-id="' + k.id + '">复制</button>'
+        + consoleBtn
+        + '<button class="danger" data-action="delete" data-key-id="' + k.id + '">删除</button>'
+        + '</div></td>'
+        + '<td class="sort" data-label="排序"><span class="drag-handle" title="拖拽排序">⠿</span></td>'
+        + '</tr>';
+    }
+    tbody.innerHTML = html;
+  }
+
+  async function changeKeyType(id, keyType) {
+    try {
+      await apiJSON('PATCH', 'api/keys/' + id, { key_type: keyType });
+      toast('已更新 #' + id + ' 类型为 ' + keyTypeLabelChinese(keyType));
+      await reloadAll();
+    } catch (e) {
+      toast('修改类型失败：' + e.message, 'error');
+      await reloadAll();
+    }
+  }
+
+  function renderProviders(providers) {
+    var sel = $('add-provider');
+    var html = '<option value="">选择 provider</option>';
+    html += '<option value="__unknown__">未知</option>';
+    for (var i = 0; i < providers.length; i++) {
+      var p = providers[i];
+      html += '<option value="' + escapeText(p.id) + '">' + escapeText(p.display_name || p.id) + '</option>';
+    }
+    sel.innerHTML = html;
+  }
+
+  function renderAll() {
+    renderDashboard(data.usage);
+    renderKeys(data.keys);
+    renderProviders(data.providers || []);
+    $('updated-at').textContent = '更新于 ' + fmtTime(data.updated_at);
+  }
+
+  async function apiJSON(method, path, body) {
+    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    var r = await fetch(path, opts);
+    var text = await r.text();
+    var json = null;
+    var invalidJSON = false;
+    try { json = text ? JSON.parse(text) : null; } catch (e) { invalidJSON = true; }
+    if (invalidJSON) console.warn('服务返回非 JSON 响应：', text);
+    if (!r.ok) {
+      var msg = (json && json.error) ? json.error : (invalidJSON ? '服务返回了非预期响应，请稍后重试' : '请求失败，请稍后重试');
+      throw new Error(normalizeErrorMessage(msg));
+    }
+    if (invalidJSON) throw new Error(normalizeErrorMessage('服务返回了非预期响应，请稍后重试'));
+    return json;
+  }
+
+  // buildUsageEntries 把 key 列表转换为「刷新单元」数组（dashboard 数据源）。
+  //
+  // 单元 = 同 (provider, account非空, key_type) 的 key 组（共用账户数据，只查一次）
+  // 或单个无 account 的 key。key_id 取单元内第一个 key 的 id（代表 key）。
+  // 未知 provider（provider_display_name 为空）标记 skip，不发起任何请求也不显示。
+  function buildUsageEntries(keys) {
+    var entries = [];
+    var map = {};
+    (keys || []).forEach(function(k) {
+      var keyType = k.key_type || 'both';
+      var gk = k.account
+        ? 'g:' + k.provider + '\u0000' + k.account + '\u0000' + keyType
+        : 's:' + k.id;
+      if (!map[gk]) {
+        map[gk] = {
+          key_id: k.id,
+          provider: k.provider,
+          provider_display_name: k.provider_display_name || '',
+          account: k.account || '',
+          key_type: keyType,
+          console_url: k.console_url || '',
+          skip: !k.provider_display_name || k.key_type === 'disabled',
+          loading: true,
+          usage: null,
+          usage_type: '',
+          error: '',
+          errorCode: '',
+          console_usage_url: '',
+          usage_note: ''
+        };
+        entries.push(map[gk]);
+      }
+    });
+    return entries;
+  }
+
+  // fetchEntry 拉取单个刷新单元（GET 走缓存，POST 强制刷新），
+  // 完成后由调用方渲染——单元之间互不等待，慢 provider 不阻塞其他卡片。
+  async function fetchEntry(entry, force) {
+    entry.loading = true;
+    entry.errorCode = '';
+    try {
+      var u = await apiJSON(force ? 'POST' : 'GET', 'api/keys/' + entry.key_id + '/usage');
+      entry.usage_type = u.usage_type || '';
+      entry.usage = u.usage || null;
+      // 错误与 errorCode 双源归一：顶层 error 是请求级真实错误，凭证错误等
+      // 条目级错误嵌在 usage 里（后端 Usage.ErrorCode），需兜底取出，
+      // 否则卡片渲染分支读不到 errorCode，「更新凭证」按钮不显示。
+      entry.error = u.error || (entry.usage && entry.usage.error) || '';
+      entry.errorCode = u.errorCode || (entry.usage && entry.usage.errorCode) || '';
+      entry.credential = u.credential || null;
+      entry.console_url = u.console_url || entry.console_url || '';
+      entry.console_usage_url = u.console_usage_url || '';
+      entry.usage_note = u.usage_note || '';
+    } catch (e) {
+      entry.error = normalizeErrorMessage(e.message || '请求失败');
+      entry.errorCode = '';
+      entry.usage = null;
+    } finally {
+      entry.loading = false;
+    }
+  }
+
+  // refreshEntries 并行拉取全部单元，每个单元完成后立即重渲染 dashboard，
+  // 一个单元卡住/超时不影响其他卡片展示。
+  function refreshEntries(entries, force) {
+    var tasks = entries.filter(function(e) { return !e.skip; }).map(function(e) {
+      return fetchEntry(e, force).then(function() { renderDashboard(data.usage); });
+    });
+    return Promise.allSettled(tasks);
+  }
+
+  // refreshUnits 强制刷新给定单元集合：置 loading、渲染、并行拉取后收尾渲染。
+  function refreshUnits(units) {
+    var pending = units.filter(function(e) { return !e.loading; });
+    if (!pending.length) return;
+    pending.forEach(function(e) { e.loading = true; });
+    renderDashboard(data.usage);
+    refreshEntries(pending, true).then(function() {
+      data.updated_at = new Date().toISOString();
+      $('updated-at').textContent = '更新于 ' + fmtTime(data.updated_at);
+      renderDashboard(data.usage);
+    });
+  }
+
+  // refreshCard 单卡刷新：刷新同 (provider, account, key_type) 的所有单元
+  // （组卡片含多个同类型单元；不同类型如 plan/balance 各自独立卡片，不联动）。
+  function refreshCard(keyId) {
+    var target = data.usage.find(function(x) { return x.key_id === keyId; });
+    if (!target) return;
+    var related = target.account
+      ? data.usage.filter(function(e) {
+          return !e.skip && e.provider === target.provider && e.account === target.account
+            && (e.key_type || 'both') === (target.key_type || 'both');
+        })
+      : [target];
+    refreshUnits(related);
+  }
+
+  // refreshAccount 凭证保存后刷新：账号级凭证跨 key_type 共享，
+  // 同 (provider, account) 的 plan/balance 卡都需更新，故不按 key_type 过滤。
+  function refreshAccount(provider, account) {
+    var acc = account || '';
+    var related = data.usage.filter(function(e) {
+      return !e.skip && e.provider === provider && (e.account || '') === acc;
+    });
+    refreshUnits(related);
+  }
+
+  async function reloadAll() {
+    var keys = await apiJSON('GET', 'api/keys');
+    data.keys = keys || [];
+    data.usage = buildUsageEntries(data.keys);
+    renderKeys(data.keys);
+    renderDashboard(data.usage);
+    await refreshEntries(data.usage, false);
+    data.updated_at = new Date().toISOString();
+    renderAll();
+  }
+
+  // refresh「刷新全部」：逐卡片并行强制刷新（POST 单 key 端点），
+  // 每张卡片数据到达即渲染，不等待最慢的 provider。
+  async function refresh() {
+    var btn = $('btn-refresh');
+    btn.disabled = true;
+    try {
+      var keys = await apiJSON('GET', 'api/keys');
+      data.keys = keys || [];
+      data.usage = buildUsageEntries(data.keys);
+      renderKeys(data.keys);
+      renderDashboard(data.usage);
+      await refreshEntries(data.usage, true);
+      data.updated_at = new Date().toISOString();
+      renderAll();
+      toast('已刷新');
+    } catch (e) {
+      toast('刷新失败：' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function deleteKey(id) {
+    if (!window.confirm('确认删除 key #' + id + '？')) return;
+    try {
+      await apiJSON('DELETE', 'api/keys/' + id);
+      toast('已删除 #' + id);
+      await reloadAll();
+    } catch (e) {
+      toast('删除失败：' + e.message, 'error');
+    }
+  }
+
+  // copyToClipboard 优先使用 navigator.clipboard（HTTPS/localhost），
+  // HTTP 局域网 fallback 到 execCommand('copy') 兼容老浏览器。
+  // 日志路径不打印 key：toast 仅显示「已复制」状态，明文 key 不入控制台。
+  function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) resolve(); else reject(new Error('execCommand copy failed'));
+      } catch (e) {
+        document.body.removeChild(ta);
+        reject(e);
+      }
+    });
+  }
+
+  async function copyKey(id) {
+    try {
+      var r = await apiJSON('GET', 'api/keys/' + id + '/key');
+      if (!r.key) throw new Error('服务端未返回 key');
+      await copyToClipboard(r.key);
+      toast('已复制 #' + id);
+    } catch (e) {
+      toast('复制失败：' + e.message, 'error');
+    }
+  }
+
+  function openConsole(id) {
+    var k = data.keys.find(function(x) { return x.id === id; });
+    if (k && k.console_url) {
+      window.open(k.console_url, '_blank', 'noopener');
+    }
+  }
+
+  // 打开卡片「前往用量页」按钮的目标链接（新标签页，noopener 防反向 tab 劫持）。
+  function openUsageURL(href) {
+    if (href) window.open(href, '_blank', 'noopener');
+  }
+
+  // 无在线用量页平台的「用量说明」弹框（T41 数据驱动回退）：
+  // 文案优先用后端下发的 usage_note，缺失时用前端通用文案。
+  var USAGE_INFO_FALLBACK = '该平台暂未提供在线用量页面，请在平台控制台或客户端内查看用量信息。';
+
+  function openUsageInfo(keyId) {
+    var entry = data.usage.find(function(x) { return x.key_id === keyId; });
+    if (!entry) return;
+    var name = entry.provider_display_name || entry.provider;
+    $('info-title').textContent = '用量说明 — ' + name;
+    var html = '<p>' + escapeText(entry.usage_note || USAGE_INFO_FALLBACK) + '</p>';
+    if (entry.console_url) {
+      html += '<p><a href="' + escapeText(entry.console_url) + '" target="_blank" rel="noopener">前往 ' + escapeText(name) + ' 控制台</a></p>';
+    }
+    $('info-body').innerHTML = html;
+    $('info-modal').classList.add('show');
+  }
+
+  function closeUsageInfo() {
+    $('info-modal').classList.remove('show');
+  }
+
+  var cookiesTarget = null;
+
+  function openCookiesModal(keyId) {
+    var entry = data.usage.find(function(x) { return x.key_id === keyId; });
+    if (!entry) return;
+    cookiesTarget = entry;
+    var label = credentialLabel(entry);
+    $('cookies-title').textContent = '更新 ' + label;
+    $('cookies-label').textContent = label;
+    $('cookies-help').textContent = (entry.credential && entry.credential.help) || '';
+    $('cookies-value').placeholder = (entry.credential && entry.credential.placeholder) || '';
+    var links = (entry.credential && entry.credential.links) || [];
+    var linksHTML = '';
+    for (var i = 0; i < links.length; i++) {
+      linksHTML += '<button type="button" class="secondary" data-action="open-credential-link" data-href="'
+        + escapeText(links[i].url) + '">' + escapeText(links[i].label) + '</button>';
+    }
+    $('cookies-shortcuts').innerHTML = linksHTML;
+    $('cookies-value').value = '';
+    $('cookies-error').textContent = '';
+    $('cookies-error').hidden = true;
+    $('cookies-save').disabled = false;
+    $('cookies-save').textContent = '保存';
+    $('cookies-modal').classList.add('show');
+    $('cookies-value').focus();
+  }
+
+  function closeCookiesModal() {
+    $('cookies-modal').classList.remove('show');
+    cookiesTarget = null;
+  }
+
+  async function saveCookies(ev) {
+    ev.preventDefault();
+    if (!cookiesTarget) return;
+    var credentialValue = $('cookies-value').value.trim();
+    var label = credentialLabel(cookiesTarget);
+    if (!credentialValue) {
+      $('cookies-error').textContent = '请粘贴 ' + label + '。';
+      $('cookies-error').hidden = false;
+      return;
+    }
+    var target = cookiesTarget;
+    var saveButton = $('cookies-save');
+    saveButton.disabled = true;
+    saveButton.textContent = '保存中…';
+    $('cookies-error').hidden = true;
+    try {
+      await apiJSON('POST', '/api/credentials', {
+        provider: target.provider,
+        account: target.account || '',
+        credential: credentialValue
+      });
+      closeCookiesModal();
+      toast(label + ' 已更新，正在刷新用量');
+      refreshAccount(target.provider, target.account);
+    } catch (e) {
+      $('cookies-error').textContent = normalizeErrorMessage(e.message || '保存失败');
+      $('cookies-error').hidden = false;
+      saveButton.disabled = false;
+      saveButton.textContent = '保存';
+    }
+  }
+
+  // fillEditProvider 填充编辑 modal 的 provider 下拉：复用注册表 provider 列表
+  // （与 add-provider 相同来源）+「未知」选项；当前 provider 不在列表
+  // （历史自定义名）时追加为兜底选项。
+  function fillEditProvider(current) {
+    var sel = $('edit-provider');
+    var html = '<option value="__unknown__">未知</option>';
+    for (var i = 0; i < (data.providers || []).length; i++) {
+      var p = data.providers[i];
+      html += '<option value="' + escapeText(p.id) + '">' + escapeText(p.display_name || p.id) + '</option>';
+    }
+    sel.innerHTML = html;
+    if (current) {
+      var known = false;
+      for (var j = 0; j < (data.providers || []).length; j++) {
+        if (data.providers[j].id === current) { known = true; break; }
+      }
+      if (!known) {
+        var opt = document.createElement('option');
+        opt.value = current;
+        opt.textContent = current;
+        sel.appendChild(opt);
+      }
+      sel.value = current;
+    }
+  }
+
+  function openEditModal(id) {
+    var k = data.keys.find(function(x) { return x.id === id; });
+    if (!k) return;
+    $('edit-id').value = String(id);
+    fillEditProvider(k.provider);
+    // key 输入框始终留空（不显示原 key），留空保存 = 保持原 key
+    $('edit-key').value = '';
+    $('edit-keytype').value = k.key_type || 'both';
+    $('edit-account').value = k.account || '';
+    $('edit-note').value = k.note || '';
+    $('edit-modal').classList.add('show');
+  }
+
+  function closeEditModal() {
+    $('edit-modal').classList.remove('show');
+  }
+
+  // openAddModal 打开添加 Key 弹窗：清空所有字段，依赖 renderProviders
+  // 在 renderAll 时已填充 #add-provider 下拉（注册表 + 「未知」选项）。
+  function openAddModal() {
+    $('add-provider').value = '';
+    $('add-key').value = '';
+    $('add-keytype').value = 'both';
+    $('add-account').value = '';
+    $('add-note').value = '';
+    $('add-modal').classList.add('show');
+  }
+
+  function closeAddModal() {
+    $('add-modal').classList.remove('show');
+  }
+
+  async function saveEdit(ev) {
+    ev.preventDefault();
+    var id = parseInt($('edit-id').value, 10);
+    var provider = $('edit-provider').value.trim();
+    // 「未知」选项：prompt 输入自定义 provider 名（与录入表单同语义）
+    if (provider === '__unknown__') {
+      provider = (window.prompt('输入自定义 provider 名称（该 key 仅存储，不查询用量）：') || '').trim();
+      if (!provider) { toast('已取消：未输入 provider 名称', 'warn'); return; }
+    }
+    var key = $('edit-key').value;
+    var keyType = $('edit-keytype').value || 'both';
+    var account = $('edit-account').value;
+    var note = $('edit-note').value;
+    try {
+      await apiJSON('PATCH', 'api/keys/' + id,
+        { provider: provider, key: key, key_type: keyType, account: account, note: note });
+      closeEditModal();
+      toast('已保存 #' + id);
+      await reloadAll();
+    } catch (e) {
+      toast('保存失败：' + e.message, 'error');
+    }
+  }
+
+  on('btn-refresh', 'click', refresh);
+  on('btn-theme', 'click', cycleTheme);
+  on('dashboard', 'click', function(ev) {
+    var t = ev.target;
+    if (!t || !t.dataset || !t.dataset.action) return;
+    var id = parseInt(t.dataset.keyId, 10);
+    var act = t.dataset.action;
+    if (act === 'card-refresh') refreshCard(id);
+    else if (act === 'usage-info') openUsageInfo(id);
+    else if (act === 'usage-url') openUsageURL(t.dataset.href);
+    else if (act === 'update-credential') openCookiesModal(id);
+  });
+  on('info-close', 'click', closeUsageInfo);
+  on('info-modal', 'click', function(ev) {
+    if (ev.target === $('info-modal')) closeUsageInfo();
+  });
+  on('cookies-cancel', 'click', closeCookiesModal);
+  on('cookies-form', 'submit', saveCookies);
+  on('cookies-modal', 'click', function(ev) {
+    var t = ev.target;
+    if (t && t.dataset && t.dataset.action === 'open-credential-link' && t.dataset.href) {
+      window.open(t.dataset.href, '_blank');
+    }
+    if (ev.target === $('cookies-modal')) closeCookiesModal();
+  });
+
+  on('keys-tbody', 'click', function(ev) {
+    var t = ev.target;
+    if (!t || !t.dataset || !t.dataset.action) return;
+    var id = parseInt(t.dataset.keyId, 10);
+    var act = t.dataset.action;
+    if (act === 'delete') deleteKey(id);
+    else if (act === 'edit') openEditModal(id);
+    else if (act === 'copy') copyKey(id);
+    else if (act === 'console') openConsole(id);
+  });
+  // 类型下拉直接修改：监听 change 事件（select 替代原 badge），无需打开编辑 modal
+  on('keys-tbody', 'change', function(ev) {
+    var t = ev.target;
+    if (!t || !t.dataset || t.dataset.action !== 'keytype') return;
+    var id = parseInt(t.dataset.keyId, 10);
+    var newKt = t.value;
+    if (!id || !newKt) return;
+    changeKeyType(id, newKt);
+  });
+
+  // 拖拽排序：HTML5 drag & drop 重排行序，dragend 后整体保存到服务端。
+  var dragRow = null;
+  on('keys-tbody', 'dragstart', function(ev) {
+    var tr = ev.target.closest('tr');
+    if (!tr) return;
+    dragRow = tr;
+    tr.classList.add('dragging');
+    ev.dataTransfer.effectAllowed = 'move';
+    try { ev.dataTransfer.setData('text/plain', tr.dataset.keyId); } catch (e) {}
+  });
+  on('keys-tbody', 'dragover', function(ev) {
+    if (!dragRow) return;
+    ev.preventDefault();
+    var tr = ev.target.closest('tr');
+    if (!tr || tr === dragRow) return;
+    var rect = tr.getBoundingClientRect();
+    var tbody = $('keys-tbody');
+    if (ev.clientY < rect.top + rect.height / 2) {
+      tbody.insertBefore(dragRow, tr);
+    } else {
+      tbody.insertBefore(dragRow, tr.nextSibling);
+    }
+  });
+  on('keys-tbody', 'drop', function(ev) { ev.preventDefault(); });
+  on('keys-tbody', 'dragend', function() {
+    var trs = $('keys-tbody').querySelectorAll('tr.dragging, tr.drag-over');
+    for (var i = 0; i < trs.length; i++) trs[i].classList.remove('dragging', 'drag-over');
+    dragRow = null;
+    saveOrder();
+  });
+
+  // saveOrder 把当前表格行序提交为服务端排序，失败则回滚重载。
+  async function saveOrder() {
+    var trs = $('keys-tbody').querySelectorAll('tr');
+    var ids = [];
+    for (var i = 0; i < trs.length; i++) ids.push(parseInt(trs[i].dataset.keyId, 10));
+    if (!ids.length) return;
+    try {
+      await apiJSON('PUT', 'api/keys/reorder', { ids: ids });
+      toast('排序已保存');
+    } catch (e) {
+      toast('保存排序失败：' + e.message, 'error');
+      await reloadAll();
+    }
+  }
+  on('edit-cancel', 'click', closeEditModal);
+  on('edit-modal', 'click', function(ev) {
+    if (ev.target === $('edit-modal')) closeEditModal();
+  });
+  on('edit-form', 'submit', saveEdit);
+  on('btn-add', 'click', openAddModal);
+  on('add-cancel', 'click', closeAddModal);
+  on('add-modal', 'click', function(ev) {
+    if (ev.target === $('add-modal')) closeAddModal();
+  });
+  on('add-form', 'submit', async function(ev) {
+    ev.preventDefault();
+    var provider = $('add-provider').value.trim();
+    // 「未知」选项：prompt 让用户输入自定义 provider 名（仅存储，不查询用量），取消则不提交
+    if (provider === '__unknown__') {
+      provider = (window.prompt('输入自定义 provider 名称（该 key 仅存储，不查询用量）：') || '').trim();
+      if (!provider) { toast('已取消：未输入 provider 名称', 'warn'); return; }
+    }
+    var key = $('add-key').value.trim();
+    var keyType = $('add-keytype').value || 'both';
+    var account = $('add-account').value.trim();
+    var note = $('add-note').value.trim();
+    if (!provider) { toast('请选择提供商', 'warn'); return; }
+    if (!key) { toast('API Key 不能为空', 'warn'); return; }
+    try {
+      await apiJSON('POST', 'api/keys', { provider: provider, key: key, key_type: keyType, account: account, note: note });
+      closeAddModal();
+      toast('已添加');
+      await reloadAll();
+    } catch (e) {
+      toast('添加失败：' + e.message, 'error');
+    }
+  });
+
+  // 初始加载：keys/providers 已由服务端注入（快照不再内联用量），
+  // 构建刷新单元后逐卡片并行拉取用量，每张卡片到达即渲染。
+  data.usage = buildUsageEntries(data.keys || []);
+  renderAll();
+  refreshEntries(data.usage, false).then(function() {
+    data.updated_at = new Date().toISOString();
+    renderAll();
+  });
+})();
+</script>
+</body>
+</html>

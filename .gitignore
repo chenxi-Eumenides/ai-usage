@@ -1,0 +1,32 @@
+# 二进制
+/ai-usage
+/gateway
+/aiusage
+/bin/
+
+# 数据目录（SQLite 数据库、缓存等）
+/data/
+
+# 运行期数据与凭证
+*.db
+*.sqlite*
+auth.json
+config.json
+.env
+
+# 内部工作笔记
+.sisyphus/
+
+# 日志
+*.log
+
+# 测试与构建产物
+*.test
+*.out
+*.prof
+
+# 编辑器与系统文件
+.idea/
+.vscode/
+*.swp
+.DS_Store

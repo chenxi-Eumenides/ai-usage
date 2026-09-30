@@ -111,7 +111,7 @@ aiusage version
 
 ### 数据与安全
 
-- SQLite 数据库默认位于 `~/.local/share/ai-usage/gateway.db`，可通过 `--data-dir` 改变数据目录。Key 和账号级凭证保存在本地；Key 列表、网页及凭证查询接口会脱敏显示，但 `GET /api/keys/{id}/key` 会按需返回完整 Key。数据库中的 Key 与凭证是明文存储，请保护数据目录及其备份。
+- SQLite 数据库默认位于 `~/.local/share/ai-usage/aiusage.db`，可通过 `--data-dir` 改变数据目录。Key 和账号级凭证保存在本地；Key 列表、网页及凭证查询接口会脱敏显示，但 `GET /api/keys/{id}/key` 会按需返回完整 Key。数据库中的 Key 与凭证是明文存储，请保护数据目录及其备份。
 - 默认仅监听 `127.0.0.1`。写请求（POST、PATCH、DELETE）会做 Origin 同源校验；没有 Origin 的命令行请求放行。设置 `--passwd` 后，所有请求均要求 Basic Auth（`admin` + 所设密码）；密码用于访问控制，不加密数据库。
 - 如需对外监听，请设置 `--listen` 并同时启用 `--passwd`。
 

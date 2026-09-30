@@ -25,7 +25,7 @@ func TestOpen(t *testing.T) {
 	}
 	defer s.Close()
 
-	dbPath := filepath.Join(dir, "gateway.db")
+	dbPath := filepath.Join(dir, "aiusage.db")
 	fi, err := os.Stat(dbPath)
 	if err != nil {
 		t.Fatalf("stat db: %v", err)
@@ -147,7 +147,7 @@ func TestAccountCredentialCRUD(t *testing.T) {
 
 func TestMigrateLegacyAccountCookies(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "gateway.db")
+	dbPath := filepath.Join(dir, "aiusage.db")
 	raw, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +256,7 @@ func TestMigrateAddsKeyTypeColumn(t *testing.T) {
 	dir := t.TempDir()
 
 	// 用旧 schema 手工建库（无 key_type 列），再通过 Open 触发迁移。
-	dbPath := filepath.Join(dir, "gateway.db")
+	dbPath := filepath.Join(dir, "aiusage.db")
 	raw, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open: %v", err)
@@ -375,7 +375,7 @@ func TestAccountStorageAndUpdate(t *testing.T) {
 func TestExistingGrpColumnIgnored(t *testing.T) {
 	dir := t.TempDir()
 
-	dbPath := filepath.Join(dir, "gateway.db")
+	dbPath := filepath.Join(dir, "aiusage.db")
 	raw, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open: %v", err)

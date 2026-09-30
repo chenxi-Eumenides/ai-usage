@@ -128,7 +128,7 @@ func runServe() {
 		log.Printf("无认证（仅本机建议）")
 	}
 	log.Printf("data-dir %s", cfg.DataDir)
-	log.Printf("db %s", filepath.Join(cfg.DataDir, "gateway.db"))
+	log.Printf("db %s", filepath.Join(cfg.DataDir, "aiusage.db"))
 	log.Printf("cache-ttl %s", cfg.CacheTTL)
 
 	// 优雅关闭：SIGINT/SIGTERM → Shutdown（5s 超时）。

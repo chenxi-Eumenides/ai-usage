@@ -51,14 +51,14 @@ type Store struct {
 // Open 打开或创建 SQLite 数据库，确保目录、权限和 schema 就绪。
 //
 // dataDir 为数据库文件所在目录，自动创建（0700）。
-// 数据库文件 gateway.db 权限固定为 0600。
+// 数据库文件 aiusage.db 权限固定为 0600。
 // 已有文件权限宽松于 0600 时打印告警（不阻断）。
 func Open(dataDir string) (*Store, error) {
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return nil, fmt.Errorf("store.Open: mkdir %s: %w", dataDir, err)
 	}
 
-	dbPath := filepath.Join(dataDir, "gateway.db")
+	dbPath := filepath.Join(dataDir, "aiusage.db")
 
 	if fi, err := os.Stat(dbPath); err == nil {
 		if mode := fi.Mode().Perm(); mode > 0600 {

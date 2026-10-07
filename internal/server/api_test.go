@@ -333,6 +333,89 @@ func TestCredentialRoutesAndUsageCredential(t *testing.T) {
 	}
 }
 
+func TestQuotedCookieCredentialRoundTripByAccount(t *testing.T) {
+	mock := &cookieMockProvider{mockProvider: newMock("mimo-cookie-roundtrip-test", "MiMo", nil, balanceUsage(), nil)}
+	s, st := newTestServer(t, map[string]provider.Provider{mock.ID(): mock})
+	// 完全合成的 Cookie，通过 JSON 编码提交；两个账户使用同一查询类型以验证隔离。
+	accounts := []struct {
+		account    string
+		credential string
+		keyID      int64
+	}{
+		{
+			account:    "account-a",
+			credential: `xiaomichatbot_serviceToken="chat-token+/="; xiaomichatbot_ph="chat-ph=="; api-platform_serviceToken="platform-token+/="; userId=123456; api-platform_slh="slh="; api-platform_ph="ph=="; unknown_cookie="keep+/=="`,
+		},
+		{
+			account:    "account-b",
+			credential: `xiaomichatbot_serviceToken="other-chat-token+/="; xiaomichatbot_ph="other-chat-ph=="; api-platform_serviceToken="other-platform-token+/="; userId=654321; api-platform_slh="other-slh="; api-platform_ph="other-ph=="; unknown_cookie="other-keep+/=="`,
+		},
+	}
+	for i := range accounts {
+		account := &accounts[i]
+		account.keyID = addTestKeyType(t, st, mock.ID(), "tp-synthetic-"+account.account, store.KeyTypeBalance, account.account, "")
+	}
+	// 空账户凭证不能替代任何具名账户的 Cookie。
+	credentials := []credentialRequest{{Provider: mock.ID(), Credential: "session=default+/=="}}
+	for _, account := range accounts {
+		credentials = append(credentials, credentialRequest{Provider: mock.ID(), Account: account.account, Credential: account.credential})
+	}
+	for _, credential := range credentials {
+		body, err := json.Marshal(credential)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := doJSON(t, s, http.MethodPost, "/api/credentials", string(body))
+		if w.Code != http.StatusOK {
+			t.Fatalf("POST credentials account=%q status=%d body=%s", credential.Account, w.Code, w.Body)
+		}
+		stored, err := st.GetAccountCredential(mock.ID(), credential.Account)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stored.Credential != credential.Credential {
+			t.Fatalf("stored credential account=%q = %q, want %q", credential.Account, stored.Credential, credential.Credential)
+		}
+	}
+	for _, account := range accounts {
+		t.Run(account.account, func(t *testing.T) {
+			get := doJSON(t, s, http.MethodGet, "/api/credentials?provider="+mock.ID()+"&account="+account.account, "")
+			if get.Code != http.StatusOK {
+				t.Fatalf("GET credentials status=%d body=%s", get.Code, get.Body)
+			}
+			var view credentialResponse
+			decodeResp(t, get, &view)
+			if view.Provider != mock.ID() || view.Account != account.account || !view.HasCredential || view.Masked == "" || view.UpdatedAt == "" {
+				t.Fatalf("credential view = %+v", view)
+			}
+			if view.Masked == account.credential || strings.Contains(get.Body.String(), "chat-token") || strings.Contains(get.Body.String(), "platform-token") {
+				t.Fatalf("GET credentials leaked synthetic cookie: %s", get.Body)
+			}
+			usage := doJSON(t, s, http.MethodGet, fmt.Sprintf("/api/keys/%d/usage", account.keyID), "")
+			if usage.Code != http.StatusOK {
+				t.Fatalf("GET usage status=%d body=%s", usage.Code, usage.Body)
+			}
+			var response singleUsageResponse
+			decodeResp(t, usage, &response)
+			if response.KeyID != account.keyID || response.Account != account.account || response.Error != "" || response.Usage == nil {
+				t.Fatalf("usage response = %+v", response)
+			}
+			if response.Usage.Error != "" || response.Usage.ErrorCode != "" || response.Usage.Balance == nil || response.Usage.Balance.Amount != "12.34" || response.Usage.Balance.Currency != "CNY" {
+				t.Fatalf("usage = %+v", response.Usage)
+			}
+			if response.Credential == nil || response.Credential.Kind != "cookie" {
+				t.Fatalf("credential metadata missing: %+v", response.Credential)
+			}
+			if mock.credential != account.credential {
+				t.Fatalf("provider received credential = %q, want %q", mock.credential, account.credential)
+			}
+		})
+	}
+	if mock.calls.Load() != 2 {
+		t.Fatalf("provider calls = %d, want one per account", mock.calls.Load())
+	}
+}
+
 type fallbackCredentialMock struct {
 	*mockProvider
 	credential string

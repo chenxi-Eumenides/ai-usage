@@ -10,6 +10,7 @@ setup() {
     
     # 脚本描述
     desc="AI 用量助手：查询各 AI 提供商 API Key 用量的本地网关"
+    # runsh-args: start stop restart shell status help -h --help
     
     # 日志设置（可选）
     enable_logging=false
@@ -262,16 +263,23 @@ init() {
 }
 
 print_help() {
-    echo "使用: $(basename "$0") [命令]"
-    echo "命令:"
-    echo "  start     启动应用程序"
-    echo "  stop      停止应用程序"
-    echo "  restart   重启应用程序"
-    echo "  shell     进入screen会话"
-    echo "  status    查看运行状态"
-    echo "  help      显示此帮助"
-    echo ""
-    echo "描述: ${desc}"
+    cat <<'EOF'
+描述: AI 用量助手：查询各 AI 提供商 API Key 用量的本地网关
+
+用法: run.sh [命令] [参数...]
+
+命令:
+  start        启动应用程序
+  stop         停止应用程序
+  restart      重启应用程序
+  shell        进入screen会话
+  status       查看运行状态
+  help         显示此帮助
+
+选项:
+  -h, --help   显示此帮助
+EOF
+    return 0
 }
 
 # -----------------------------------------------------------------------------

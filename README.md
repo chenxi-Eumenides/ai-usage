@@ -35,9 +35,11 @@ aiusage serve
 | OpenAI | `openai` | ChatGPT/Codex 套餐配额（WHAM 非公开端点）；API key 的 credit grants 仅兼容兜底 | Bearer OAuth access token（`eyJ...`）；`sk-` API key 仅兜底 | 套餐：5h + 周窗口；余额：credit grants（USD） | 余额 → [platform.openai.com/usage](https://platform.openai.com/usage)；套餐 → [chatgpt.com/codex/cloud/settings/analytics](https://chatgpt.com/codex/cloud/settings/analytics) | ⚠️ 非公开端点 |
 | ModelScope 魔搭 | `modelscope` | 每日限流次数（发送最小推理请求，读取响应头） | Bearer `ms-` | 每日请求次数 | [modelscope.cn 个人中心](https://modelscope.cn/my)（免费额度） | ⚠️ 每次查询消耗 1 次额度 |
 | 阿里云百炼 Token Plan | `bailian` | 不可用（官方未开放用量查询 API，ModelStudio/BSS OpenAPI 均需阿里云 AK/SK 签名） | `sk-sp-` 点分套餐 key（正则校验，与按量 `sk-` 隔离） | 仅存储 | 套餐 → [百炼控制台 我的订阅](https://bailian.console.aliyun.com/cn-beijing?tab=plan&commonbuy=1&orderType=buy#/efm/subscription/token-plan/personal) | ❌ 官方未开放 |
-| Xiaomi MiMo | `mimo` | 不可用（官方无用量 API） | `sk-` / `tp-`（Token Plan 套餐 key） | 仅存储 | 余额 → [platform.xiaomimimo.com/console/balance](https://platform.xiaomimimo.com/console/balance)；套餐 → [platform.xiaomimimo.com/console/plan-manage](https://platform.xiaomimimo.com/console/plan-manage) | ❌ 官方未开放 |
+| Xiaomi MiMo | `mimo` | 控制台 Cookie 查询余额 / 套餐（非公开接口） | 控制台 Cookie；Key 管理支持 `sk-` / `tp-` | 余额 + 套餐配额 | 余额 → [platform.xiaomimimo.com/console/balance](https://platform.xiaomimimo.com/console/balance)；套餐 → [platform.xiaomimimo.com/console/plan-manage](https://platform.xiaomimimo.com/console/plan-manage) | ⚠️ 非公开接口 |
 
 套餐价格信息以官方订阅页为准。标为逆向或验证中的接口可能随提供商变化而失效。
+
+MiMo 凭证需从**已登录的 MiMo 开放平台**余额或套餐页面，在开发者工具 Network 中找到 `/api/v1/balance` 或 `/api/v1/tokenPlan/usage` 请求，复制请求头中的**完整 Cookie 值**，粘贴到对应账号的“更新 Cookies”弹窗。分号、双引号以及值中的 `+`、`/`、`=` 均可保留，无需去引号、解码或删字段。不保证仅聊天站 Cookie 可用，凭证有效性以实际接口鉴权结果为准；该查询依赖非公开接口，不代表官方支持或稳定性承诺。
 
 ## 网页
 

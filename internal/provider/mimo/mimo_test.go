@@ -40,6 +40,75 @@ func TestBalanceUsage(t *testing.T) {
 	}
 }
 
+func TestUsagePreservesCookieHeader(t *testing.T) {
+	// 全部为合成值；本地解析仅验证传输兼容性，不代表 MiMo 鉴权成功。
+	formats := []struct {
+		name   string
+		cookie string
+		values map[string]string
+	}{
+		{
+			name:   "quoted platform cookies",
+			cookie: `xiaomichatbot_serviceToken="chat-token+/="; xiaomichatbot_ph="chat-ph=="; api-platform_serviceToken="platform-token+/="; userId=123456; api-platform_slh="slh="; api-platform_ph="ph=="; unknown_cookie="keep+/=="`,
+			values: map[string]string{
+				"xiaomichatbot_serviceToken": "chat-token+/=", "xiaomichatbot_ph": "chat-ph==",
+				"api-platform_serviceToken": "platform-token+/=", "userId": "123456",
+				"api-platform_slh": "slh=", "api-platform_ph": "ph==", "unknown_cookie": "keep+/==",
+			},
+		},
+		{
+			name:   "legacy unquoted cookies",
+			cookie: "session=secret+/==; token=abc==; unknown_cookie=keep+/==",
+			values: map[string]string{"session": "secret+/==", "token": "abc==", "unknown_cookie": "keep+/=="},
+		},
+	}
+	for _, format := range formats {
+		t.Run(format.name, func(t *testing.T) {
+			for _, keyType := range []string{provider.UsageTypeBalance, provider.UsageTypePlan} {
+				t.Run(keyType, func(t *testing.T) {
+					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if r.Method != http.MethodGet || r.URL.Path != "/"+keyType {
+							t.Errorf("request = %s %s, want GET /%s", r.Method, r.URL.Path, keyType)
+						}
+						if got := r.Header.Values("Cookie"); len(got) != 1 || got[0] != format.cookie {
+							t.Errorf("Cookie headers = %q, want single unchanged header %q", got, format.cookie)
+						}
+						for name, want := range format.values {
+							cookie, err := r.Cookie(name)
+							if err != nil {
+								t.Errorf("Cookie(%q): %v", name, err)
+							} else if cookie.Value != want {
+								t.Errorf("Cookie(%q) = %q, want %q", name, cookie.Value, want)
+							}
+						}
+						if keyType == provider.UsageTypeBalance {
+							w.Write([]byte(`{"code":0,"data":{"balance":"12.5","currency":"CNY"}}`))
+						} else {
+							w.Write([]byte(`{"code":0,"data":{"usage":{"items":[{"name":"plan_total_token","used":5,"limit":50,"percent":"10"}]}}}`))
+						}
+					}))
+					defer srv.Close()
+					withTestURLs(t, srv.URL+"/balance", srv.URL+"/plan")
+					u, err := fetchUsage(context.Background(), format.cookie, keyType)
+					if err != nil || u == nil {
+						t.Fatalf("usage=%+v err=%v", u, err)
+					}
+					if u.Error != "" || u.ErrorCode != "" || u.UpdatedAt.IsZero() {
+						t.Fatalf("unsuccessful usage = %+v", u)
+					}
+					if keyType == provider.UsageTypeBalance {
+						if u.BalanceType != "balance" || u.Balance == nil || u.Balance.Amount != "12.5" || u.Balance.Currency != "CNY" {
+							t.Fatalf("balance usage = %+v", u)
+						}
+					} else if u.BalanceType != "quota" || len(u.Quotas) != 1 || u.Quotas[0] != (provider.Quota{Period: "套餐额度", Used: "5", Limit: "50", Remaining: "45", Percent: "90"}) {
+						t.Fatalf("plan usage = %+v", u)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestPlanUsage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/plan" {

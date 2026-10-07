@@ -43,8 +43,8 @@ func TestUsageConsoleURL(t *testing.T) {
 		t.Errorf("balance: got %q, want usage 页", got)
 	}
 	for _, keyType := range []string{provider.UsageTypePlan, "both"} {
-		if got := spec.UsageURL(keyType); got != "https://chatgpt.com/codex/cloud/settings/analytics" {
-			t.Errorf("keyType=%s: got %q, want ChatGPT Codex 用量分析页", keyType, got)
+		if got := spec.UsageURL(keyType); got != "https://chatgpt.com/settings/usage?tab=overview" {
+			t.Errorf("keyType=%s: got %q, want ChatGPT 套餐用量页", keyType, got)
 		}
 	}
 }

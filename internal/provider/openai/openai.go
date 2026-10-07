@@ -39,7 +39,7 @@ var spec = provider.Spec{
 	ProxyURL:    "socks5://localhost:20170",
 	UsageType:   provider.UsageTypePlan,
 	UsageURLs: provider.UsageURLs{
-		Plan:    "https://chatgpt.com/codex/cloud/settings/analytics",
+		Plan:    "https://chatgpt.com/settings/usage?tab=overview",
 		Balance: "https://platform.openai.com/usage",
 	},
 	Credential: &provider.CredentialSpec{
@@ -49,7 +49,7 @@ var spec = provider.Spec{
 		Placeholder: "粘贴新的 access token（eyJ 开头）",
 		Links: []provider.CredentialLink{
 			{Label: "打开用量页", URL: "https://platform.openai.com/usage"},
-			{Label: "打开套餐分析页", URL: "https://chatgpt.com/codex/cloud/settings/analytics"},
+			{Label: "打开套餐用量页", URL: "https://chatgpt.com/settings/usage?tab=overview"},
 		},
 		KeyFallback: true,
 	},

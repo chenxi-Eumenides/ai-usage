@@ -100,6 +100,14 @@
   .kv { font-size: 13px; margin: 4px 0; display: flex; justify-content: space-between; gap: 8px; }
   .kv .label { color: var(--muted); }
   .kv .value { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  /* 配额行：三段式——名称居左 / 百分比居中 / 剩余重置时间居右；下方独占一行进度条。 */
+  .quota { margin: 3px 0 6px; }
+  .quota:last-child { margin-bottom: 0; }
+  .quota-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; gap: 6px; font-size: 13px; }
+  .quota-name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .quota-pct { font-family: ui-monospace, "SF Mono", Consolas, monospace; text-align: center; white-space: nowrap; }
+  .quota-reset { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+  .quota-reset.urgent { color: var(--warn); }
   .progress { background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden; margin-top: 4px; }
   .progress-bar { height: 100%; background: var(--accent); transition: width 0.3s; }
   .progress-bar.warn { background: var(--warn); }
@@ -467,8 +475,8 @@
     return m.amount + ' ' + (m.currency || '');
   }
 
-  // fmtQuota 渲染配额右侧值。period 只由左侧 label 显示（见 renderCard），
-  // 右侧只显示一个百分比（剩余百分比，语义与 minimax 的
+  // fmtQuota 渲染配额行的中段值。period 由左侧 quota-name 显示，
+  // 此处只显示一个百分比（剩余百分比，语义与 minimax 的
   // current_interval_remaining_percent 一致）；无 percent 时降级显示 used/limit
   // 或 remaining/limit。注意 q.used 可能为空串（kimi API 不返回 used 字段），
   // 空串视为无数据，避免渲染出「/100」。
@@ -478,6 +486,32 @@
     if (q.used != null && q.used !== '' && q.limit) return q.used + '/' + q.limit;
     if (q.remaining != null && q.remaining !== '' && q.limit) return q.remaining + '/' + q.limit;
     return '-';
+  }
+
+  // fmtResetIn 把 resetAt 渲染为剩余时长文案，统一「剩 X 天 Y 小时」。
+  // 返回 {text, urgent}：text 为空串表示无重置时间，前端留空；
+  // urgent 为窗口不足 24 小时，供样式给出临近提醒。
+  // 缺失 / 非法 / 已过期（缓存未刷新）都按留空处理，不显示误导性的负时长。
+  function fmtResetIn(resetAt) {
+    if (!resetAt) return { text: '', urgent: false };
+    var t = Date.parse(resetAt);
+    if (!isFinite(t)) return { text: '', urgent: false };
+    var ms = t - Date.now();
+    if (ms <= 0) return { text: '', urgent: false };
+
+    var totalMin = Math.floor(ms / 60000);
+    var days = Math.floor(totalMin / 1440);
+    var hours = Math.floor((totalMin % 1440) / 60);
+    var mins = totalMin % 60;
+    var text;
+    if (days > 0) {
+      text = '剩 ' + days + ' 天 ' + hours + ' 小时';
+    } else if (hours > 0) {
+      text = '剩 ' + hours + ' 小时';
+    } else {
+      text = '剩 ' + mins + ' 分钟';
+    }
+    return { text: text, urgent: ms <= 24 * 3600 * 1000 };
   }
 
   // fmtPeriod 把配额窗口标识译为中文；未收录的（含已是中文的）原样返回。
@@ -649,7 +683,9 @@
   }
 
   // usageBodyHTML 渲染 usage 的余额/套餐/配额部分，renderCard 与 renderGroupCard 共享：
-  // balance → 「余额 X」；plan.level → 「套餐 X」；quotas → 各窗口 X% + 进度条。
+  // balance → 「余额 X」；plan.level → 「套餐 X」；
+  // quotas → 每项两行：第一行名称 / 百分比 / 剩余重置时间（居左/居中/居右，无重置时间则留空），
+  // 第二行进度条（percent 缺失时省略）。
   function usageBodyHTML(usage) {
     var body = '';
     if (!usage) return body;
@@ -659,11 +695,18 @@
     if (usage.quotas && usage.quotas.length) {
       for (var j = 0; j < usage.quotas.length; j++) {
         var q = usage.quotas[j];
-        body += '<div class="kv"><span class="label">' + escapeText(fmtPeriod(q.period) || '配额') + '</span><span class="value">' + escapeText(fmtQuota(q)) + '</span></div>';
+        var cls = q.percent ? quotaPercentClass(q.percent) : '';
+        var reset = fmtResetIn(q.resetAt);
+        body += '<div class="quota">'
+          + '<div class="quota-head">'
+          + '<span class="quota-name">' + escapeText(fmtPeriod(q.period) || '配额') + '</span>'
+          + '<span class="quota-pct">' + escapeText(fmtQuota(q)) + '</span>'
+          + '<span class="quota-reset' + (reset.urgent ? ' urgent' : '') + '">' + escapeText(reset.text) + '</span>'
+          + '</div>';
         if (q.percent) {
-          var cls = quotaPercentClass(q.percent);
           body += '<div class="progress"><div class="progress-bar ' + cls + '" style="width:' + fmtPctNum(q.percent) + '%"></div></div>';
         }
+        body += '</div>';
       }
     }
     return body;

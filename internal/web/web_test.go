@@ -152,6 +152,47 @@ func TestRenderTemplateFmtQuotaPercentOnly(t *testing.T) {
 	}
 }
 
+// TestRenderTemplateQuotaResetLayout 守护配额行的两行三段布局：
+// 第一行名称/百分比/剩余重置时间（左/中/右），第二行进度条。
+// 同时守护 fmtResetIn 的留空降级与「剩 X 天 Y 小时」文案。
+func TestRenderTemplateQuotaResetLayout(t *testing.T) {
+	data, err := templatesFS.ReadFile("templates/index.html")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	src := string(data)
+
+	// 三段结构 + 独立进度条行。
+	for _, s := range []string{
+		"class=\"quota-head\"",
+		"class=\"quota-name\"",
+		"class=\"quota-pct\"",
+		"class=\"quota-reset",
+		"q.resetAt",
+	} {
+		if !strings.Contains(src, s) {
+			t.Errorf("模板缺少 %q（配额行应为 名称/百分比/重置时间 三段）", s)
+		}
+	}
+	// 居中 / 居右由 grid 列定位保证。
+	if !strings.Contains(src, "grid-template-columns: 1fr auto 1fr") {
+		t.Errorf("quota-head 应用 1fr auto 1fr 三列，使百分比居中、重置时间居右")
+	}
+	if !strings.Contains(src, ".quota-reset {") || !strings.Contains(src, "text-align: right") {
+		t.Errorf("重置时间应右对齐")
+	}
+	// 统一文案格式与缺失留空。
+	if !strings.Contains(src, "function fmtResetIn(resetAt)") {
+		t.Errorf("缺少 fmtResetIn（resetAt → 剩余时长）")
+	}
+	if !strings.Contains(src, "'剩 ' + days + ' 天 ' + hours + ' 小时'") {
+		t.Errorf("剩余时长文案应统一为「剩 X 天 Y 小时」")
+	}
+	if !strings.Contains(src, "if (!resetAt) return { text: '', urgent: false };") {
+		t.Errorf("resetAt 缺失时应返回空串留空，而不是显示占位符")
+	}
+}
+
 // TestRenderTemplateThemeSystem 验证主题三态系统：CSS 变量分组 + 切换按钮 + JS 逻辑。
 // 守护 T23 主题系统：未来重构若误删 [data-theme="dark"] 覆盖或 prefers-color-scheme 媒体
 // 查询导致深色模式失效，此测试立即失败。

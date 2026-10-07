@@ -47,8 +47,9 @@ func init() {
 }
 
 // codingPlanResp 对应 GET /coding_plan/remains 的响应结构。
-// 仅解析需要的字段；remains_time/weekly_remains_time 为毫秒时间窗，
-// 本项目以 percent 为准（total_count 2026-06 后恒为 0，不可用）。
+// 仅解析需要的字段。percent 用于进度条；remains_time/weekly_remains_time 是
+// 剩余时间窗的毫秒数（相对当前时刻，非绝对时间戳），换算为 Quota.ResetAt。
+// total_count 2026-06 后恒为 0，不可用于计算配额，故不解析。
 type codingPlanResp struct {
 	BaseResp struct {
 		StatusCode int    `json:"status_code"`
@@ -119,6 +120,11 @@ func fetchUsage(ctx context.Context, key string, keyType string) (*provider.Usag
 
 	// 过滤 model_name=="video"（video 条目不计入 coding 配额），
 	// 取第一个非 video 条目填充 5h + weekly 两个窗口。
+	//
+	// now 只取一次：两个窗口共用同一基准时刻，避免毫秒级偏差导致前端
+	// 显示的剩余时长在换算后不一致。字段缺失或为 0 时保持 ResetAt 零值，
+	// 与 opencodego / zai 的降级约定一致（不报错，前端留空）。
+	now := time.Now()
 	for _, m := range r.ModelRemains {
 		if m.ModelName == "video" {
 			continue
@@ -127,13 +133,24 @@ func fetchUsage(ctx context.Context, key string, keyType string) (*provider.Usag
 			{
 				Period:  "5h",
 				Percent: strconv.FormatFloat(m.CurrentIntervalRemainingPct, 'f', -1, 64),
+				ResetAt: resetAtFromWindow(now, m.RemainsTime),
 			},
 			{
 				Period:  "weekly",
 				Percent: strconv.FormatFloat(m.CurrentWeeklyRemainingPct, 'f', -1, 64),
+				ResetAt: resetAtFromWindow(now, m.WeeklyRemainsTime),
 			},
 		}
 		break
 	}
 	return usage, nil
+}
+
+// resetAtFromWindow 把「剩余毫秒数」换算为绝对重置时间。
+// windowMillis <= 0（字段缺失或上游未下发）→ 零值，表示无重置时间。
+func resetAtFromWindow(now time.Time, windowMillis int64) time.Time {
+	if windowMillis <= 0 {
+		return time.Time{}
+	}
+	return now.Add(time.Duration(windowMillis) * time.Millisecond)
 }

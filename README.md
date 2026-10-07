@@ -29,7 +29,7 @@ aiusage serve
 | DeepSeek | `deepseek` | 余额（官方 API） | Bearer `sk-` | 余额 | [platform.deepseek.com/usage](https://platform.deepseek.com/usage) | ✅ 稳定 |
 | Moonshot（Kimi 开放平台） | `moonshot-cn` | 余额（官方 API） | Bearer `sk-` | 余额 | [platform.kimi.com/console/account](https://platform.kimi.com/console/account) | ✅ 稳定 |
 | Kimi Code | `kimi-code` | 套餐配额（社区逆向接口，未官方文档化） | Bearer `sk-kimi-` | 套餐：周 + 5h 窗口 | [www.kimi.com/code/console](https://www.kimi.com/code/console)（控制台内查看） | ⚠️ 逆向接口 |
-| MiniMax | `minimax` | 套餐配额（Coding Plan，官方 FAQ） | Bearer `sk-` | 套餐：5h + 周百分比 | [platform.minimaxi.com/console/usage](https://platform.minimaxi.com/console/usage) | ⚠️ 字段随版本变更 |
+| MiniMax | `minimax` | 套餐配额（Coding Plan，官方 FAQ） | Bearer `sk-` | 套餐：5h + 周窗口，含剩余重置时间 | [platform.minimaxi.com/console/usage](https://platform.minimaxi.com/console/usage) | ⚠️ 字段随版本变更 |
 | 智谱 ZAI（GLM） | `zai` | 余额（官方 API）+ 套餐配额（Coding Plan 逆向接口） | Bearer 或裸 key `32hex.16alnum` | 余额 + 总消费；套餐：5h + 周窗口 | 套餐 → [bigmodel.cn 套餐用量](https://www.bigmodel.cn/coding-plan/personal/overview)；余额 → [bigmodel.cn 财务总览](https://www.bigmodel.cn/finance-center/finance/overview) | ✅ 余额稳定 / ⚠️ 套餐逆向 |
 | OpenCode Go | `opencode-go` | 套餐窗口（官方端点，验证中） | Bearer `sk-` | 套餐：5h + 周 + 月 | [opencode.ai workspace](https://opencode.ai/workspace)（控制台内查看） | ⚠️ 端点验证中 |
 | OpenAI | `openai` | ChatGPT/Codex 套餐配额（WHAM 非公开端点）；API key 的 credit grants 仅兼容兜底 | Bearer OAuth access token（`eyJ...`）；`sk-` API key 仅兜底 | 套餐：5h + 周窗口；余额：credit grants（USD） | 余额 → [platform.openai.com/usage](https://platform.openai.com/usage)；套餐 → [chatgpt.com/codex/cloud/settings/analytics](https://chatgpt.com/codex/cloud/settings/analytics) | ⚠️ 非公开端点 |
@@ -45,7 +45,7 @@ MiMo 凭证需从**已登录的 MiMo 开放平台**余额或套餐页面，在�
 
 打开 `http://127.0.0.1:8080` 后可使用：
 
-- **用量仪表盘**：按提供商展示余额、配额和套餐信息，可刷新全部或单张卡片，并聚合展示用量。
+- **用量仪表盘**：按提供商展示余额、配额和套餐信息，可刷新全部或单张卡片，并聚合展示用量。套餐配额每项分两行显示：第一行为窗口名称、剩余百分比和距离重置的剩余时长（居左 / 居中 / 居右），第二行为进度条；提供商未返回重置时间时该位置留空。
 - **Key 管理**：添加、删除、编辑账户/备注、修改类型和拖拽排序。禁用的 Key 不参与用量查询和仪表盘显示。
 - **凭证更新**：凭证缺失或失效时，可从用量卡片打开更新弹窗；弹窗提供凭证说明与快捷链接。凭证按提供商和账户保存。
 - **控制台链接**：从卡片前往提供商用量页；没有直达用量页时显示用量说明。

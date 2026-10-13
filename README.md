@@ -67,6 +67,8 @@ aiusage version
 
 显式 flag 优先于环境变量；未设置时使用默认值。`version` 打印版本号。
 
+`serve` 的标准日志会继续输出到 stderr，并追加写入配置目录下的 `app.log`，目录按配置加载同款两级顺序尝试（用户级 `~/.config/ai-usage` → 系统级 `/etc/ai-usage`），包括启动/退出、访问、Origin 校验和 panic 日志。所有目录均无法写入时服务仍会启动，仅输出到 stderr；日志不轮转。
+
 ## API
 
 提供同源 REST API，路径以 `/api/` 开头，使用 JSON 格式，可通过 curl 访问。设置 `--passwd` 后需使用 Basic Auth（用户名 `admin`，密码为配置值）。例如，查询全部用量：`curl -u admin:密码 http://127.0.0.1:8080/api/usage`。

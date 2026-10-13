@@ -47,6 +47,8 @@ import (
 // version 可在编译时通过 -ldflags "-X main.version=..." 覆盖。
 var version = "1.0.0"
 
+const logFileName = "app.log"
+
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintln(flag.CommandLine.Output(), "命令行参数无效，请检查下列参数说明：")
@@ -82,6 +84,11 @@ func main() {
 // server.NewServer(st, cache, ttl) → web.NewHandler(s)。
 // API 与 web 页面挂同一 mux（同源），保证浏览器写请求通过 Origin 校验。
 func runServe() {
+	logFile := setupFileLogging()
+	if logFile != nil {
+		defer logFile.Close()
+	}
+
 	appConfig, configPath, err := appconf.Load()
 	if err != nil {
 		log.Fatalf("配置加载失败：%s", oneLineError(err))
@@ -151,6 +158,32 @@ func runServe() {
 	}
 	<-shutdownDone
 	log.Printf("已退出")
+}
+
+// setupFileLogging 将日志同时输出到 stderr 和文件。日志文件目录按
+// appconf.ConfigDirs 的优先级尝试（用户级 → 系统级），全部失败时仅输出 stderr。
+func setupFileLogging() *os.File {
+	dirs, err := appconf.ConfigDirs()
+	if err != nil {
+		log.Printf("警告：无法确定日志目录：%s；继续仅输出到 stderr", oneLineError(err))
+		return nil
+	}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			log.Printf("警告：无法创建日志目录 %s：%s；尝试下一目录", dir, oneLineError(err))
+			continue
+		}
+		path := filepath.Join(dir, logFileName)
+		file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			log.Printf("警告：无法打开日志文件 %s：%s；尝试下一目录", path, oneLineError(err))
+			continue
+		}
+		log.SetOutput(io.MultiWriter(os.Stderr, file))
+		return file
+	}
+	log.Printf("警告：无法写入任何日志目录；继续仅输出到 stderr")
+	return nil
 }
 
 func oneLineError(err error) string {

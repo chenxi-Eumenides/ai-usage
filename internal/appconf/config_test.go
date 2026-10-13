@@ -37,6 +37,41 @@ func TestLoadPriority(t *testing.T) {
 	}
 }
 
+func TestUserConfigDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	got, err := UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(home, ".config", ProjectName); got != want {
+		t.Fatalf("UserConfigDir() = %q, want %q", got, want)
+	}
+}
+
+func TestConfigDirs(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	got, err := ConfigDirs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		filepath.Join(home, ".config", ProjectName),
+		filepath.Join("/etc", ProjectName),
+	}
+	if len(got) != len(want) {
+		t.Fatalf("ConfigDirs() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("ConfigDirs()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 func TestLoadCreatesDefaultFileAndFillsDefaults(t *testing.T) {
 	root := t.TempDir()
 	home, etc := filepath.Join(root, "home"), filepath.Join(root, "etc")

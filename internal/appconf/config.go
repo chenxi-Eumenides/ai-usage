@@ -59,11 +59,35 @@ func (c Config) PageFeatures() Features {
 // Load 按用户配置目录、系统配置目录的优先级加载配置。
 // 返回生效配置、选中的文件路径和错误；首次缺少配置时尝试在用户级目录创建默认文件。
 func Load() (Config, string, error) {
+	userDir, err := UserConfigDir()
+	if err != nil {
+		return Config{}, "", err
+	}
+	return loadFromDirs(userDir, filepath.Join("/etc", ProjectName))
+}
+
+// UserConfigDir 返回用户级应用配置目录。
+func UserConfigDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return Config{}, "", fmt.Errorf("获取用户主目录失败: %w", err)
+		return "", fmt.Errorf("获取用户主目录失败: %w", err)
 	}
-	return loadFromDirs(filepath.Join(home, ".config", ProjectName), filepath.Join("/etc", ProjectName))
+	return filepath.Join(home, ".config", ProjectName), nil
+}
+
+// SystemConfigDir 返回系统级应用配置目录。
+func SystemConfigDir() string {
+	return filepath.Join("/etc", ProjectName)
+}
+
+// ConfigDirs 返回配置目录优先级列表：用户级 → 系统级。
+// 与 Load 的两级加载顺序一致，供日志等附属文件按同样顺序降级。
+func ConfigDirs() ([]string, error) {
+	userDir, err := UserConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	return []string{userDir, SystemConfigDir()}, nil
 }
 
 func loadFromDirs(userDir, systemDir string) (Config, string, error) {

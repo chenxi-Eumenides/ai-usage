@@ -1245,7 +1245,9 @@
     saveButton.textContent = '保存中…';
     $('cookies-error').hidden = true;
     try {
-      await apiJSON('POST', '/api/credentials', {
+      // 相对路径：服务可能被反向代理挂在子路径下（如 /apikey/），
+      // 绝对路径会打到代理根路径而返回 HTML，触发「非预期响应」。
+      await apiJSON('POST', 'api/credentials', {
         provider: target.provider,
         account: target.account || '',
         credential: credentialValue
